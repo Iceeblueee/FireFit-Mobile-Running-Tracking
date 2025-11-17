@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "128894433428",
+    "project_id": "firefit-app-15068",
+    "storage_bucket": "firefit-app-15068.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:128894433428:android:cdbcac23ac5dd015921c81",
+        "android_client_info": {
+          "package_name": "com.example.firefit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDz0bm19ureSBvLI8V-XaZ6oNS3TbvL54U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
