@@ -37,4 +37,8 @@
 1. Clone repositori:
    ```bash
    git clone https://github.com/Iceeblueee/FireFit-Mobile-Running-Tracking.git
+<<<<<<< HEAD
    cd firefit
+=======
+   cd firefit
+>>>>>>> 2b3c8c8d649d3ae30acc06145c8a6e6626c541bb
