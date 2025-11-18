@@ -43,7 +43,7 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
               Icons.notifications,
               Icons.settings,
             ];
-            final labels = ['Home', 'Activity', 'Alerts', 'Settings'];
+            final labels = ['Home', 'Activity', 'Remainders', 'Settings'];
 
             return Expanded(
               child: InkWell(

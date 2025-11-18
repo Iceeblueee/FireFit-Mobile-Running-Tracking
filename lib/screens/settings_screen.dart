@@ -55,60 +55,6 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const Divider(),
-            // === My Stats ===
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                ),
-                child: const Icon(Icons.bar_chart, color: Colors.green),
-              ),
-              title: const Text('My Stats'),
-              subtitle: const Text('View your daily & weekly stats'),
-              onTap: () {
-                _showStatsDialog(context);
-              },
-            ),
-            const Divider(),
-            // === Reminders ===
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                ),
-                child: const Icon(Icons.alarm, color: Colors.orange),
-              ),
-              title: const Text('Reminders'),
-              subtitle: const Text('Set workout time reminders'),
-              onTap: () {
-                _showRemindersDialog(context);
-              },
-            ),
-            const Divider(),
-            // === Goals ===
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                ),
-                child: const Icon(Icons.flag, color: Colors.red),
-              ),
-              title: const Text('Goals'),
-              subtitle: const Text('Track your weekly targets'),
-              onTap: () {
-                _showGoalsDialog(context);
-              },
-            ),
-            const Divider(),
             // === Security ===
             ListTile(
               leading: Container(
@@ -124,29 +70,6 @@ class SettingsScreen extends StatelessWidget {
               subtitle: const Text('Change password & verify email'),
               onTap: () {
                 _showSecurityDialog(context);
-              },
-            ),
-            const Divider(),
-            // === Dark Mode ===
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                ),
-                child: const Icon(Icons.dark_mode, color: Colors.grey),
-              ),
-              title: const Text('Dark Mode'),
-              subtitle: const Text('Toggle dark/light theme'),
-              trailing: Switch(
-                value: false, // Ganti dengan state tema
-                onChanged: (value) {},
-                activeColor: Colors.orange,
-              ),
-              onTap: () {
-                // Toggle theme
               },
             ),
             const Divider(),
@@ -186,24 +109,6 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const Divider(),
-            // === Export Data ===
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[200],
-                ),
-                child: const Icon(Icons.download, color: Colors.blue),
-              ),
-              title: const Text('Export Data'),
-              subtitle: const Text('Download your workout history'),
-              onTap: () {
-                _showExportDialog(context);
-              },
-            ),
-            const Divider(),
             // === Logout ===
             ListTile(
               leading: Container(
@@ -227,184 +132,6 @@ class SettingsScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showStatsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('My Stats'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildStatCard('Total Workouts', '24', Colors.green),
-              const SizedBox(height: 10),
-              _buildStatCard('Total Distance', '125.6 km', Colors.blue),
-              const SizedBox(height: 10),
-              _buildStatCard('Calories Burned', '12,450 cal', Colors.orange),
-              const SizedBox(height: 10),
-              _buildStatCard('Weekly Goal', '75% Completed', Colors.purple),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.bar_chart, color: color),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(value, style: TextStyle(color: color, fontSize: 16)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRemindersDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Set Workout Reminders'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildReminderOption('Morning Run', '7:00 AM', true),
-              const SizedBox(height: 10),
-              _buildReminderOption('Evening Walk', '6:00 PM', false),
-              const SizedBox(height: 10),
-              _buildReminderOption('Weekend Hike', '9:00 AM', true),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildReminderOption(String title, String time, bool enabled) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(time, style: TextStyle(color: Colors.grey[600])),
-              ],
-            ),
-          ),
-          Switch(
-            value: enabled,
-            onChanged: (value) {},
-            activeColor: Colors.orange,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showGoalsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Set Weekly Goals'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildGoalCard('Run 50 km', '25 km done', Colors.green),
-              const SizedBox(height: 10),
-              _buildGoalCard(
-                'Walk 100,000 steps',
-                '65,000 steps done',
-                Colors.blue,
-              ),
-              const SizedBox(height: 10),
-              _buildGoalCard(
-                'Burn 5,000 calories',
-                '3,200 calories burned',
-                Colors.orange,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildGoalCard(String title, String progress, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: 0.65, // Ganti dengan nilai dinamis
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-          const SizedBox(height: 8),
-          Text(progress, style: TextStyle(color: color)),
-        ],
       ),
     );
   }
@@ -554,31 +281,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  void _showExportDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Export Your Data'),
-          content: const Text(
-            'You can export your workout history as a CSV file. '
-            'This includes all your runs, distances, times, and calories burned.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Export Now'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Later'),
-            ),
-          ],
-        );
-      },
     );
   }
 }

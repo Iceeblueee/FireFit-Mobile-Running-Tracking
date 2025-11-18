@@ -12,7 +12,7 @@ import '../models/navigation_model.dart';
 import '../models/tracking_model.dart';
 import '../widgets/custom_bottom_nav.dart';
 import 'activity_screen.dart';
-import 'alerts_screen.dart';
+import 'reminders_screen.dart';
 import 'settings_screen.dart';
 
 // ✅ Tambahkan GlobalKey untuk mengakses Scaffold
@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> pages = [
       const HomeContent(), // Index 0
       const ActivityScreen(), // Index 1
-      const AlertsScreen(), // Index 2
+      const RemindersScreen(), // Index 2
       const SettingsScreen(), // Index 3
     ];
 
@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 title: const Text(
-                  'Alerts',
+                  'Remainders',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
