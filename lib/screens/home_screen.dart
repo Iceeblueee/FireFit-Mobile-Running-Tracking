@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // Tambahkan ini
-import 'package:geolocator/geolocator.dart'; // Tambahkan ini
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ Tambahkan import ini
-import 'login_screen.dart'; // ✅ Tambahkan import ini
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Import ini
+import 'login_screen.dart';
 
 import '../models/navigation_model.dart';
 import '../models/tracking_model.dart';
@@ -15,7 +15,6 @@ import 'activity_screen.dart';
 import 'reminders_screen.dart';
 import 'settings_screen.dart';
 
-// ✅ Tambahkan GlobalKey untuk mengakses Scaffold
 final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
 class HomeScreen extends StatefulWidget {
@@ -30,11 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final navModel = Provider.of<NavigationModel>(context);
 
-    final List<Widget> pages = [
-      const HomeContent(), // Index 0
-      const ActivityScreen(), // Index 1
-      const RemindersScreen(), // Index 2
-      const SettingsScreen(), // Index 3
+    final List<Widget> _pages = [
+      const HomeContent(),
+      const ActivityScreen(),
+      const RemindersScreen(),
+      const SettingsScreen(),
     ];
 
     return Scaffold(
@@ -68,9 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       endDrawer: Drawer(
         child: Container(
-          color: Colors.white, // Warna latar belakang drawer
+          color: Colors.white,
           child: ListView(
-            padding: EdgeInsets.zero, // Hilangkan padding default
+            padding: EdgeInsets.zero,
             children: [
               // === HEADER DENGAN LOGO ===
               Container(
@@ -80,17 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   left: 20,
                   right: 20,
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3), // Biru solid seperti gambar
-                ),
+                decoration: BoxDecoration(color: const Color(0xFF2196F3)),
                 child: Column(
                   children: [
-                    // Logo FireFit (gunakan SVG jika tersedia)
                     SvgPicture.asset(
-                      'assets/images/logo.svg', // Pastikan file ini ada
+                      'assets/images/logo.svg',
                       width: 60,
                       height: 60,
-                      color: Colors.orange, // Ubah warna logo menjadi putih
+                      color: Colors.orange,
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -104,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              // === PROFIL PENGGUNA ===
+              // === PROFIL PENGGUNA (Nama dan Email dari Firebase) ===
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -112,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Ikon Profil
                     Container(
                       width: 60,
                       height: 60,
@@ -123,19 +118,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: const Icon(Icons.person, color: Colors.grey),
                     ),
                     const SizedBox(width: 15),
-                    // Nama dan Email
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'John Doe',
+                          FirebaseAuth.instance.currentUser?.displayName ??
+                              'User', // ✅ Ganti "John Doe"
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
-                          'johndoe@example.com',
+                          FirebaseAuth.instance.currentUser?.email ??
+                              'user@example.com', // ✅ Ganti email
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -146,16 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              // === GARIS PEMISAH ===
-              const Divider(
-                height: 1,
-                thickness: 1,
-                indent: 0,
-                endIndent: 0,
-                color: Colors.blueGrey,
-              ),
+              const Divider(height: 1, thickness: 1, color: Colors.blueGrey),
               // === MENU ITEMS ===
-              // Gunakan ListTile tanpa divider dan dengan padding disesuaikan
               ListTile(
                 leading: Container(
                   width: 40,
@@ -170,15 +158,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Home',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
-                ),
                 onTap: () {
                   Navigator.pop(context);
-                  navModel.setIndex(
-                    0,
-                  ); // ✅ Aman karena sudah divalidasi di model
+                  navModel.setIndex(0);
                 },
               ),
               ListTile(
@@ -194,10 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: const Text(
                   'Activity',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -222,10 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Remainders',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
-                ),
                 onTap: () {
                   Navigator.pop(context);
                   navModel.setIndex(2);
@@ -248,10 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: const Text(
                   'Settings',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -276,14 +246,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Privacy',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
-                ),
                 onTap: () {
                   Navigator.pop(context);
-                  // Tambahkan navigasi ke halaman Privacy jika ada
-                  // navModel.setIndex(?);
                 },
               ),
               ListTile(
@@ -304,27 +268,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Help & Support',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 0,
-                ),
                 onTap: () {
                   Navigator.pop(context);
-                  // Tambahkan navigasi ke halaman Help & Support jika ada
-                  // navModel.setIndex(?);
                 },
               ),
               // === LOGOUT BUTTON ===
-              const SizedBox(height: 180), // Jarak dari menu terakhir
+              const SizedBox(height: 180),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    // ✅ Tambahkan async
-                    // ✅ Logout dari Firebase
                     await FirebaseAuth.instance.signOut();
-
-                    // ✅ Arahkan ke halaman login
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -350,19 +304,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20), // Jarak dari tombol logout ke bawah
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-      // ✅ Perbaikan: Gunakan index yang aman
-      body:
-          pages.elementAtOrNull(navModel.selectedIndex) ??
-          const Center(child: Text('Page not found')),
+      body: _pages[navModel.selectedIndex],
       bottomNavigationBar: CustomBottomNav(
         currentIndex: navModel.selectedIndex,
         onItemTapped: (index) {
-          navModel.setIndex(index); // ✅ Aman karena validasi ada di model
+          navModel.setIndex(index);
         },
       ),
     );
@@ -379,7 +330,7 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   String _formattedDate = '';
   String _currentTime = '';
-  double _todayDistance = 0.0; // Tambahkan variabel
+  double _todayDistance = 0.0;
 
   late Timer _timer;
 
@@ -391,14 +342,7 @@ class _HomeContentState extends State<HomeContent> {
       _updateDateTime();
     });
 
-    // ✅ Ambil jarak hari ini saat halaman dimuat
     _loadTodayDistance();
-
-    // ✅ Simulasi login untuk testing (hapus jika pakai auth real)
-    Future.delayed(Duration.zero, () {
-      final trackingModel = Provider.of<TrackingModel>(context, listen: false);
-      trackingModel.simulateLogin('user_1'); // Ganti dengan UID nyata nanti
-    });
   }
 
   Future<void> _loadTodayDistance() async {
@@ -418,14 +362,14 @@ class _HomeContentState extends State<HomeContent> {
   void _updateDateTime() {
     final now = DateTime.now();
     final days = [
-      'Sunday', // 0
-      'Monday', // 1
-      'Tuesday', // 2
-      'Wednesday', // 3
-      'Thursday', // 4
-      'Friday', // 5
-      'Saturday', // 6
-    ]; // <= 7 elemen (indeks 0-6)
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
     final months = [
       'Jan',
       'Feb',
@@ -442,7 +386,6 @@ class _HomeContentState extends State<HomeContent> {
     ];
 
     setState(() {
-      // ✅ Perbaikan: gunakan now.weekday - 1
       _formattedDate =
           '${days[now.weekday - 1]} ${now.day} ${months[now.month - 1]} ${now.year}';
       _currentTime =
@@ -459,28 +402,29 @@ class _HomeContentState extends State<HomeContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // === HEADER: Hello, John Doe + Hari, Tanggal, Jam ===
+          // === HEADER: Hello, Nama User ===
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               RichText(
-                // ✅ Gunakan RichText untuk menyambungkan "Hello," dan "John Doe"
                 text: TextSpan(
                   children: [
-                    TextSpan(
+                    const TextSpan(
                       text: 'Hello, ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
                     ),
                     TextSpan(
-                      text: 'John Doe',
+                      text:
+                          FirebaseAuth.instance.currentUser?.displayName ??
+                          'User', // ✅ Ganti "John Doe"
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF6C47FF), // Ungu seperti gambar
+                        color: Color(0xFF6C47FF),
                       ),
                     ),
                   ],
@@ -488,7 +432,7 @@ class _HomeContentState extends State<HomeContent> {
               ),
               const SizedBox(height: 8),
               Text(
-                _formattedDate.split(' ')[0], // Hanya hari (e.g., Thursday)
+                _formattedDate.split(' ')[0],
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -497,14 +441,14 @@ class _HomeContentState extends State<HomeContent> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${_formattedDate.substring(_formattedDate.indexOf(' ') + 1)} | $_currentTime', // Tanggal & Jam
+                '${_formattedDate.substring(_formattedDate.indexOf(' ') + 1)} | $_currentTime',
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
           const SizedBox(height: 30),
 
-          // Today's Run + Runner Illustration
+          // Today's Run
           Row(
             children: [
               Container(
@@ -512,7 +456,7 @@ class _HomeContentState extends State<HomeContent> {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: Colors.blue.withOpacity(0.1),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
@@ -543,7 +487,7 @@ class _HomeContentState extends State<HomeContent> {
                       style: TextStyle(fontSize: 14),
                     ),
                     Text(
-                      '${_todayDistance.toStringAsFixed(2)} km', // ✅ Gunakan _todayDistance
+                      '${_todayDistance.toStringAsFixed(2)} km',
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -555,9 +499,7 @@ class _HomeContentState extends State<HomeContent> {
                           context,
                           listen: false,
                         );
-                        navModel.setIndex(
-                          1,
-                        ); // Arahkan ke ActivityScreen melalui bottom nav
+                        navModel.setIndex(1);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orangeAccent,
@@ -644,12 +586,11 @@ class _HomeContentState extends State<HomeContent> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // === BOX ABU-ABU UNTUK MAPS ===
                 Container(
                   height: 150,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withOpacity(0.2),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
@@ -679,7 +620,7 @@ class _HomeContentState extends State<HomeContent> {
                                 borderRadius: BorderRadius.circular(10),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withValues(alpha: 0.3),
+                                    color: Colors.grey.withOpacity(0.3),
                                     spreadRadius: 1,
                                     blurRadius: 3,
                                   ),
@@ -702,14 +643,9 @@ class _HomeContentState extends State<HomeContent> {
                   alignment: Alignment.center,
                   child: Text(
                     'Live tracking',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.white70),
                   ),
                 ),
-
-                // === Tombol Start/Finish di Dalam Card ===
                 const SizedBox(height: 15),
                 Consumer<TrackingModel>(
                   builder: (context, trackingModel, child) {
@@ -729,14 +665,11 @@ class _HomeContentState extends State<HomeContent> {
     return GestureDetector(
       onHorizontalDragUpdate: (details) {
         if (trackingModel.isTracking) {
-          // Geser ke kiri untuk finish
           if (details.delta.dx < -5) {
             trackingModel.stopTracking();
-            trackingModel
-                .saveCurrentActivity(); // ✅ Simpan aktivitas ke Firestore
+            trackingModel.saveCurrentActivity();
           }
         } else {
-          // Geser ke kanan untuk start
           if (details.delta.dx > 5) {
             trackingModel.startTracking();
           }
@@ -755,7 +688,6 @@ class _HomeContentState extends State<HomeContent> {
         ),
         child: Stack(
           children: [
-            // Ikon lari
             Positioned(
               left: 10,
               top: 0,
@@ -776,7 +708,6 @@ class _HomeContentState extends State<HomeContent> {
                 ),
               ),
             ),
-            // Teks "Start" atau "Finish"
             Center(
               child: Text(
                 trackingModel.isTracking ? 'Finish' : 'Start',
@@ -787,7 +718,6 @@ class _HomeContentState extends State<HomeContent> {
                 ),
               ),
             ),
-            // Panah
             Positioned(
               right: 10,
               top: 0,
@@ -815,7 +745,6 @@ class _HomeContentState extends State<HomeContent> {
   }
 }
 
-// Widget untuk menampilkan peta kecil di card
 class GoogleMapWidget extends StatefulWidget {
   const GoogleMapWidget({super.key});
 
@@ -838,10 +767,8 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Cek apakah layanan lokasi aktif
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Jika layanan tidak aktif, tampilkan pesan
       print('Layanan lokasi tidak aktif.');
       setState(() {
         _isLoadingLocation = false;
@@ -869,7 +796,6 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
       return;
     }
 
-    // Ambil lokasi terbaru
     final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
@@ -928,7 +854,6 @@ class _GoogleMapWidgetState extends State<GoogleMapWidget> {
   }
 }
 
-// Widget untuk fullscreen map
 class FullscreenMapScreen extends StatefulWidget {
   const FullscreenMapScreen({super.key});
 
@@ -1031,7 +956,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.3),
+                    color: Colors.grey.withOpacity(0.3),
                     spreadRadius: 2,
                     blurRadius: 5,
                   ),

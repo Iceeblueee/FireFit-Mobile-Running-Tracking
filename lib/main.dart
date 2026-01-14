@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/navigation_model.dart';
 import 'models/tracking_model.dart';
-import 'screens/splash_screen.dart'; // ✅ Gunakan ini
+import 'screens/splash_screen.dart';
 import 'screens/activity_screen.dart';
 
 final trackingModel = TrackingModel();
@@ -31,11 +31,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'FireFit',
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Poppins'),
-      home: const SplashScreen(), // ✅ Ganti dari StartScreen
-      routes: {
-        // ❌ Hapus route '/' karena tidak digunakan
-        '/activity': (context) => const ActivityScreen(),
-      },
+      home: const SplashScreen(),
+      routes: {'/activity': (context) => const ActivityScreen()},
       debugShowCheckedModeBanner: false,
     );
   }

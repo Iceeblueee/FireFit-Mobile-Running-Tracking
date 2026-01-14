@@ -109,6 +109,24 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const Divider(),
+            // === Export Data ===
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[200],
+                ),
+                child: const Icon(Icons.download, color: Colors.blue),
+              ),
+              title: const Text('Export Data'),
+              subtitle: const Text('Download your workout history'),
+              onTap: () {
+                _showExportDialog(context);
+              },
+            ),
+            const Divider(),
             // === Logout ===
             ListTile(
               leading: Container(
@@ -281,6 +299,31 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showExportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Export Your Data'),
+          content: const Text(
+            'You can export your workout history as a CSV file. '
+            'This includes all your runs, distances, times, and calories burned.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Export Now'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
