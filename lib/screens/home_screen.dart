@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ Import ini
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 
 import '../models/navigation_model.dart';
@@ -29,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final navModel = Provider.of<NavigationModel>(context);
 
-    final List<Widget> _pages = [
+    final List<Widget> pages = [
       const HomeContent(),
       const ActivityScreen(),
       const RemindersScreen(),
@@ -71,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // === HEADER DENGAN LOGO ===
               Container(
                 padding: const EdgeInsets.only(
                   top: 50,
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   left: 20,
                   right: 20,
                 ),
-                decoration: BoxDecoration(color: const Color(0xFF2196F3)),
+                decoration: BoxDecoration(color: const Color(0xFF5C6BC0)),
                 child: Column(
                   children: [
                     SvgPicture.asset(
@@ -100,47 +100,106 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              // === PROFIL PENGGUNA (Nama dan Email dari Firebase) ===
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 20,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey[200],
+              // === PROFIL PENGGUNA (Dari Firestore) ===
+              FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(FirebaseAuth.instance.currentUser?.uid)
+                    .get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 20,
                       ),
-                      child: const Icon(Icons.person, color: Colors.grey),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            child: CircularProgressIndicator(),
+                          ),
+                          SizedBox(width: 15),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Loading...'),
+                              Text('user@example.com'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 20,
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            child: Icon(Icons.person, color: Colors.grey),
+                          ),
+                          SizedBox(width: 15),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [Text('User'), Text('user@example.com')],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  final fullName = data['fullName'] ?? 'User';
+                  final email =
+                      FirebaseAuth.instance.currentUser?.email ??
+                      'user@example.com';
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 20,
                     ),
-                    const SizedBox(width: 15),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          FirebaseAuth.instance.currentUser?.displayName ??
-                              'User', // ✅ Ganti "John Doe"
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[200],
                           ),
+                          child: const Icon(Icons.person, color: Colors.grey),
                         ),
-                        Text(
-                          FirebaseAuth.instance.currentUser?.email ??
-                              'user@example.com', // ✅ Ganti email
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
+                        const SizedBox(width: 15),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fullName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
               const Divider(height: 1, thickness: 1, color: Colors.blueGrey),
               // === MENU ITEMS ===
@@ -272,7 +331,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pop(context);
                 },
               ),
-              // === LOGOUT BUTTON ===
               const SizedBox(height: 180),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -309,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      body: _pages[navModel.selectedIndex],
+      body: pages[navModel.selectedIndex],
       bottomNavigationBar: CustomBottomNav(
         currentIndex: navModel.selectedIndex,
         onItemTapped: (index) {
@@ -337,6 +395,10 @@ class _HomeContentState extends State<HomeContent> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<TrackingModel>(context, listen: false).updateUserId();
+      _loadTodayDistance();
+    });
     _updateDateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateDateTime();
@@ -402,49 +464,61 @@ class _HomeContentState extends State<HomeContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // === HEADER: Hello, Nama User ===
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              RichText(
-                text: TextSpan(
-                  children: [
-                    const TextSpan(
-                      text: 'Hello, ',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+          // === HEADER: Hello, Nama User (Dari Firestore) ===
+          FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .get(),
+            builder: (context, snapshot) {
+              String fullName = 'User';
+              if (snapshot.hasData && snapshot.data != null) {
+                final data = snapshot.data!.data() as Map<String, dynamic>;
+                fullName = data['fullName'] ?? 'User';
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: 'Hello, ',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextSpan(
+                          text: fullName,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF5C6BC0),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextSpan(
-                      text:
-                          FirebaseAuth.instance.currentUser?.displayName ??
-                          'User', // ✅ Ganti "John Doe"
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6C47FF),
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _formattedDate.split(' ')[0],
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _formattedDate.split(' ')[0],
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_formattedDate.substring(_formattedDate.indexOf(' ') + 1)} | $_currentTime',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_formattedDate.substring(_formattedDate.indexOf(' ') + 1)} | $_currentTime',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 30),
 
@@ -744,6 +818,8 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 }
+
+// ... (GoogleMapWidget dan FullscreenMapScreen tetap sama)
 
 class GoogleMapWidget extends StatefulWidget {
   const GoogleMapWidget({super.key});

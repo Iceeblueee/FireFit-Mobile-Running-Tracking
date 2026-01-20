@@ -110,7 +110,7 @@ class _RemindersDialogState extends State<RemindersDialog> {
           Switch(
             value: enabled,
             onChanged: onChanged,
-            activeColor: Colors.orange,
+            activeThumbColor: Colors.orange,
           ),
         ],
       ),

@@ -3,14 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class RunningActivity {
-  final String id; // Firestore document ID
+  final String id;
   final DateTime startTime;
   final DateTime endTime;
   final double distance; // km
   final int steps;
   final Duration duration;
-  final List<LatLng> path; // Track GPS
-  final List<String> mediaUrls; // Foto & Video
+  final List<LatLng> path;
+  final List<String> mediaUrls;
 
   RunningActivity({
     required this.id,
@@ -23,11 +23,9 @@ class RunningActivity {
     this.mediaUrls = const [],
   });
 
-  // Helper untuk menghitung moving time
   String get movingTime =>
       '${duration.inMinutes} min ${duration.inSeconds % 60} sec';
 
-  // Helper untuk format tanggal
   String get formattedDate {
     final now = DateTime.now();
     if (startTime.day == now.day &&
@@ -59,7 +57,6 @@ class RunningActivity {
     return months[month - 1];
   }
 
-  // Method untuk konversi ke Map (untuk Firestore)
   Map<String, dynamic> toMap() {
     return {
       'startTime': startTime,
@@ -69,27 +66,32 @@ class RunningActivity {
       'duration': duration.inSeconds,
       'path': path.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList(),
       'mediaUrls': mediaUrls,
-      'createdAt': FieldValue.serverTimestamp(), // Tambahkan timestamp server
+      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
-  // Factory constructor dari Firestore
-  factory RunningActivity.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-    SnapshotOptions? options,
-  ) {
-    final data = snapshot.data();
+  factory RunningActivity.fromFirestore(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    // Perbaikan: Gunakan .toDouble() dan casting num agar aman dari error tipe data
     return RunningActivity(
-      id: snapshot.id,
-      startTime: (data?['startTime'] as Timestamp).toDate(),
-      endTime: (data?['endTime'] as Timestamp).toDate(),
-      distance: data?['distance'] as double,
-      steps: data?['steps'] as int,
-      duration: Duration(seconds: data?['duration'] as int),
-      path: (data?['path'] as List)
-          .map((e) => LatLng(e['lat'] as double, e['lng'] as double))
-          .toList(),
-      mediaUrls: List<String>.from(data?['mediaUrls'] ?? []),
+      id: doc.id,
+      startTime: (data['startTime'] as Timestamp).toDate(),
+      endTime: (data['endTime'] as Timestamp).toDate(),
+      distance: (data['distance'] ?? 0.0).toDouble(),
+      steps: (data['steps'] ?? 0) as int,
+      duration: Duration(seconds: (data['duration'] ?? 0) as int),
+      path:
+          (data['path'] as List?)
+              ?.map(
+                (e) => LatLng(
+                  (e['lat'] as num).toDouble(),
+                  (e['lng'] as num).toDouble(),
+                ),
+              )
+              .toList() ??
+          [],
+      mediaUrls: List<String>.from(data['mediaUrls'] ?? []),
     );
   }
 }

@@ -183,7 +183,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                                 onChanged: (value) {
                                   _toggleReminder(index);
                                 },
-                                activeColor: Colors.orange,
+                                activeThumbColor: Colors.orange,
                               ),
                               IconButton(
                                 icon: const Icon(
@@ -256,7 +256,7 @@ class _AddReminderDialogState extends State<AddReminderDialog> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: day,
+            initialValue: day,
             decoration: const InputDecoration(labelText: 'Day'),
             items:
                 [

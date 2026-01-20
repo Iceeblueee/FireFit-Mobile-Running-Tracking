@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart'; // ✅ Tambahkan ini
+import '../models/tracking_model.dart'; // ✅ Tambahkan ini
 import 'login_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -25,7 +27,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   DateTime? _selectedDate;
   bool _isLoading = false;
 
-  // ✅ Tambahkan variabel untuk menyimpan overlay entry
   OverlayEntry? _notificationEntry;
 
   @override
@@ -38,11 +39,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              // ✅ Tambahkan ini untuk mengatasi overflow
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo
                   Center(
                     child: SvgPicture.asset(
                       'assets/images/logo.svg',
@@ -52,8 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
-                  // Judul
                   const Text(
                     'Register Account',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -64,8 +61,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 30),
-
-                  // Name Field
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
@@ -87,8 +82,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Email Field
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
@@ -115,8 +108,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Password Field
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
@@ -142,8 +133,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Confirm Password Field
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: true,
@@ -169,8 +158,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Date of Birth
                   GestureDetector(
                     onTap: () => _selectDate(context),
                     child: AbsorbPointer(
@@ -201,8 +188,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Weight Field
                   TextFormField(
                     controller: _weightController,
                     decoration: InputDecoration(
@@ -228,8 +213,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Height Field
                   TextFormField(
                     controller: _heightController,
                     decoration: InputDecoration(
@@ -255,8 +238,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 30),
-
-                  // Register Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -276,10 +257,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Already have account?
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -320,13 +298,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // ✅ Fungsi untuk menampilkan notifikasi di atas layar tanpa overlay gelap
   void _showTopNotification(String message, {bool isError = false}) {
-    // Hapus notifikasi sebelumnya jika ada
     _notificationEntry?.remove();
     _notificationEntry = null;
 
-    // Buat widget notifikasi
     final notificationWidget = Positioned(
       top: 50,
       left: 20,
@@ -346,7 +321,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 isError ? Icons.error_outline : Icons.check_circle,
                 color: Colors.white,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 20),
               Flexible(
                 child: Text(
                   message,
@@ -359,12 +334,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
 
-    // Tampilkan notifikasi sebagai OverlayEntry
     _notificationEntry = OverlayEntry(builder: (context) => notificationWidget);
-    // ✅ Ganti ? dengan .
     Overlay.of(context).insert(_notificationEntry!);
 
-    // Hilangkan notifikasi setelah 5 detik
     Future.delayed(const Duration(seconds: 5), () {
       _notificationEntry?.remove();
       _notificationEntry = null;
@@ -379,30 +351,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      // Buat akun Firebase
       final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
           );
 
-      // Simpan data tambahan ke Firestore
+      String? dobString;
+      if (_selectedDate != null) {
+        dobString = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+      }
+
+      // ✅ Simpan ke Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
           .set({
-            'name': _nameController.text.trim(),
+            'fullName': _nameController.text.trim(),
             'email': _emailController.text.trim(),
             'weight': double.parse(_weightController.text.trim()),
             'height': double.parse(_heightController.text.trim()),
-            'dateOfBirth': _selectedDate,
+            'dateOfBirth': dobString,
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      // ✅ Tampilkan notifikasi sukses di atas tanpa background gelap
+      // ✅ SET USER ID DI TRACKING MODEL
+      final trackingModel = Provider.of<TrackingModel>(context, listen: false);
+      trackingModel.setCurrentUser(userCredential.user!.uid);
+
       _showTopNotification('Account created successfully!');
 
-      // ✅ Kosongkan semua form setelah register berhasil
       _nameController.clear();
       _emailController.clear();
       _passwordController.clear();
@@ -410,10 +388,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _weightController.clear();
       _heightController.clear();
       setState(() {
-        _selectedDate = null; // Reset tanggal lahir
+        _selectedDate = null;
       });
 
-      // Setelah berhasil, arahkan ke LoginScreen
+      await Future.delayed(const Duration(seconds: 2));
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -424,11 +402,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         message = 'This email is already registered.';
       }
 
-      // Jika error, tampilkan notifikasi error di atas juga
       _showTopNotification(message, isError: true);
 
-      // ✅ Kosongkan form juga jika gagal karena email sudah ada
-      // Ini agar user bisa coba register dengan email baru
       if (e.code == 'email-already-in-use') {
         _nameController.clear();
         _emailController.clear();
@@ -437,7 +412,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _weightController.clear();
         _heightController.clear();
         setState(() {
-          _selectedDate = null; // Reset tanggal lahir
+          _selectedDate = null;
         });
       }
     } finally {
@@ -449,14 +424,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    // Bersihkan controller
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _weightController.dispose();
     _heightController.dispose();
-    // Hapus overlay jika masih ada saat dispose
     _notificationEntry?.remove();
     super.dispose();
   }

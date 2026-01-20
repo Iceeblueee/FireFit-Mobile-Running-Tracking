@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import '../models/tracking_model.dart';
 import 'register_screen.dart';
 import 'reset_password_screen.dart';
 import 'home_screen.dart';
@@ -29,11 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              // ✅ Tambahkan ini untuk mengatasi overflow
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo
                   Center(
                     child: SvgPicture.asset(
                       'assets/images/logo.svg',
@@ -43,8 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
-                  // Judul
                   const Text(
                     'Welcome Back!',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -55,8 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 30),
-
-                  // Email Field
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
@@ -83,8 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // Password Field
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
@@ -110,8 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 10),
-
-                  // Forgot Password?
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -127,8 +119,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
-                  // Login Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -148,10 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Register Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -186,12 +173,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
-      // Jika berhasil login, arahkan ke HomeScreen
+      final trackingModel = Provider.of<TrackingModel>(context, listen: false);
+      trackingModel.setCurrentUser(userCredential.user!.uid);
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomeScreen()),

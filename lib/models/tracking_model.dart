@@ -1,80 +1,58 @@
-// models/tracking_model.dart
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // Untuk debugPrint
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'running_activity.dart';
-
-typedef RunningActivityCallback = void Function(RunningActivity activity);
 
 class TrackingModel extends ChangeNotifier {
   bool _isTracking = false;
   int _steps = 0;
-  double _distance = 0.0; // dalam meter
+  double _distance = 0.0; // Meter
   int _timerSeconds = 0;
+
+  int _lastStepCountForDistance = 0;
+  double _accelMagnitudePrevious = 0.0;
+  final double _stepThreshold = 12.0;
+
   Timer? _trackingTimer;
-  Timer? _locationUpdateTimer;
+  StreamSubscription<Position>? _positionStream;
+  StreamSubscription<UserAccelerometerEvent>? _accelStream;
 
-  Position? _lastKnownPosition;
-  Position? _currentPosition;
-
+  Position? _lastPosition;
   List<LatLng> _recordedPositions = [];
-  double _sliderDragOffset = 0.0;
-
-  static const double _averageStepLengthMeters = 0.75;
-
-  RunningActivityCallback? onActivitySaved;
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String? _currentUserId;
 
+  TrackingModel() {
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  // --- GETTERS ---
+  bool get isTracking => _isTracking;
+  int get steps => _steps;
+  double get distance => _distance / 1000;
+  int get timerSeconds => _timerSeconds;
   String? get currentUserId => _currentUserId;
+  List<LatLng> get recordedPositions => _recordedPositions;
+
+  void updateUserId() {
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    notifyListeners();
+  }
 
   void setCurrentUser(String userId) {
     _currentUserId = userId;
     notifyListeners();
   }
 
-  void simulateLogin(String userId) {
-    _currentUserId = userId;
-    notifyListeners();
-  }
-
-  bool get isTracking => _isTracking;
-  int get steps => _steps;
-  double get distance => _distance;
-  int get timerSeconds => _timerSeconds;
-
-  Position? get lastKnownPosition => _lastKnownPosition;
-  Position? get currentPosition => _currentPosition;
-
-  List<LatLng> get recordedPositions => _recordedPositions;
-  double get sliderDragOffset => _sliderDragOffset;
-
-  void setSliderDragOffset(double offset) {
-    _sliderDragOffset = offset;
-    notifyListeners();
-  }
-
-  // Helper untuk rentang waktu hari ini
-  DateTime get startOfDay {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
-  }
-
-  DateTime get endOfDay {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
-  }
-
-  // Method untuk menghitung total jarak hari ini dari Firestore
   Future<double> getTodayDistance() async {
     if (_currentUserId == null) return 0.0;
-
-    final todayStart = startOfDay;
-    final todayEnd = endOfDay;
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
 
     try {
       final querySnapshot = await _firestore
@@ -82,59 +60,37 @@ class TrackingModel extends ChangeNotifier {
           .doc(_currentUserId)
           .collection('activities')
           .where('startTime', isGreaterThanOrEqualTo: todayStart)
-          .where('endTime', isLessThanOrEqualTo: todayEnd)
           .get();
 
       double totalDistance = 0.0;
       for (final doc in querySnapshot.docs) {
-        final data = doc.data();
-        if (data['distance'] is double) {
-          totalDistance += data['distance'] as double;
-        }
+        totalDistance += (doc.data()['distance'] as num).toDouble();
       }
-
       return totalDistance;
     } catch (e) {
-      debugPrint("Error fetching today's distance: $e");
       return 0.0;
     }
-  }
-
-  Future<bool> _requestLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('Izin lokasi ditolak');
-        return false;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('Izin lokasi ditolak selamanya, arahkan ke pengaturan.');
-      return false;
-    }
-    return true;
   }
 
   void startTracking() async {
     if (_isTracking) return;
 
-    bool hasPermission = await _requestLocationPermission();
-    if (!hasPermission) {
-      debugPrint("Tracking tidak dapat dimulai: Izin lokasi tidak diberikan.");
-      return;
+    _stopAllStreams();
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
     }
 
-    debugPrint("Memulai tracking GPS...");
-
+    updateUserId();
     _isTracking = true;
     _steps = 0;
     _distance = 0.0;
     _timerSeconds = 0;
-    _lastKnownPosition = null;
-    _currentPosition = null;
+    _lastStepCountForDistance = 0;
     _recordedPositions = [];
+    _lastPosition = null;
 
     _trackingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_isTracking) {
@@ -143,149 +99,125 @@ class TrackingModel extends ChangeNotifier {
       }
     });
 
-    const Duration locationUpdateInterval = Duration(seconds: 5);
-    _locationUpdateTimer = Timer.periodic(locationUpdateInterval, (
-      timer,
-    ) async {
-      if (_isTracking) {
-        await _updateLocation();
-      }
-    });
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 8,
+      ),
+    ).listen(_processLocation);
+
+    _accelStream = userAccelerometerEvents.listen(_processSteps);
 
     notifyListeners();
   }
 
-  Future<void> _updateLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        debugPrint("Layanan lokasi dinonaktifkan.");
-        return;
-      }
+  void _processSteps(UserAccelerometerEvent event) {
+    if (!_isTracking) return;
+    double magnitude = sqrt(
+      event.x * event.x + event.y * event.y + event.z * event.z,
+    );
+    double delta = magnitude - _accelMagnitudePrevious;
+    _accelMagnitudePrevious = magnitude;
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        debugPrint("Izin lokasi hilang selama tracking.");
-        return;
-      }
+    if (delta > _stepThreshold) {
+      _steps++;
+      notifyListeners();
+    }
+  }
 
-      Position newPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+  void _processLocation(Position position) {
+    if (!_isTracking || position.accuracy > 15) return;
+
+    if (_lastPosition != null) {
+      double diff = Geolocator.distanceBetween(
+        _lastPosition!.latitude,
+        _lastPosition!.longitude,
+        position.latitude,
+        position.longitude,
       );
 
-      if (_lastKnownPosition != null) {
-        double distanceTraveled = Geolocator.distanceBetween(
-          _lastKnownPosition!.latitude,
-          _lastKnownPosition!.longitude,
-          newPosition.latitude,
-          newPosition.longitude,
-        );
+      bool hasMovedSteps = _steps > _lastStepCountForDistance;
 
-        if (distanceTraveled > 1.0) {
-          _distance += distanceTraveled;
-          _steps = (_distance / _averageStepLengthMeters).round();
-          _recordedPositions.add(
-            LatLng(newPosition.latitude, newPosition.longitude),
-          );
-        }
-      } else {
-        _recordedPositions.add(
-          LatLng(newPosition.latitude, newPosition.longitude),
-        );
-        _steps = 0;
+      if (hasMovedSteps && diff > 5.0 && diff < 40.0) {
+        _distance += diff;
+        _lastStepCountForDistance = _steps;
+        _recordedPositions.add(LatLng(position.latitude, position.longitude));
+        _lastPosition = position;
+        notifyListeners();
       }
-
-      _lastKnownPosition = newPosition;
-      _currentPosition = newPosition;
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Error saat memperbarui lokasi: $e");
+    } else {
+      _lastPosition = position;
+      _lastStepCountForDistance = _steps;
+      _recordedPositions.add(LatLng(position.latitude, position.longitude));
     }
+  }
+
+  void _stopAllStreams() {
+    _trackingTimer?.cancel();
+    _positionStream?.cancel();
+    _accelStream?.cancel();
+    _trackingTimer = null;
+    _positionStream = null;
+    _accelStream = null;
   }
 
   void stopTracking() {
-    if (!_isTracking) return;
-
-    debugPrint("Menghentikan tracking GPS...");
     _isTracking = false;
-
-    _trackingTimer?.cancel();
-    _trackingTimer = null;
-
-    _locationUpdateTimer?.cancel();
-    _locationUpdateTimer = null;
-
+    _stopAllStreams();
     notifyListeners();
   }
 
-  // ✅ Method untuk menyimpan aktivitas saat tracking selesai
+  // --- LOGIKA PENYIMPANAN DENGAN VALIDASI 5 DETIK ---
   Future<void> saveCurrentActivity() async {
-    if (_isTracking) {
-      stopTracking();
+    stopTracking();
+
+    // VALIDASI: Minimal 5 detik rekaman agar bisa disimpan
+    if (_currentUserId == null || _timerSeconds < 5) {
+      debugPrint("Gagal simpan: Durasi terlalu singkat (kurang dari 5 detik).");
+      reset(); // Reset tampilan ke 0 tanpa menyimpan ke Firebase
+      return;
     }
 
-    // ✅ Pastikan ada data yang bisa disimpan
-    if (_recordedPositions.isNotEmpty && _currentUserId != null) {
-      final now = DateTime.now();
-      final activity = RunningActivity(
-        id: '', // Akan diisi oleh Firestore
-        startTime: now.subtract(Duration(seconds: _timerSeconds)),
-        endTime: now,
-        distance: _distance / 1000, // Konversi meter ke km
-        steps: _steps,
-        duration: Duration(seconds: _timerSeconds),
-        path: [..._recordedPositions], // Simpan salinan rute
-        mediaUrls: [], // Kosong dulu, nanti bisa ditambahkan
-      );
+    final now = DateTime.now();
+    final activity = RunningActivity(
+      id: '',
+      startTime: now.subtract(Duration(seconds: _timerSeconds)),
+      endTime: now,
+      distance: _distance / 1000,
+      steps: _steps,
+      duration: Duration(seconds: _timerSeconds),
+      path: [..._recordedPositions],
+    );
 
-      try {
-        // ✅ Simpan ke Firestore di koleksi: users/{userId}/activities
-        await _firestore
-            .collection('users')
-            .doc(_currentUserId)
-            .collection('activities')
-            .add(activity.toMap());
-
-        debugPrint("Activity saved to Firestore");
-
-        // ✅ Reset statistik setelah simpan
-        reset();
-
-        notifyListeners();
-
-        onActivitySaved?.call(activity);
-      } catch (e) {
-        debugPrint("Error saving activity to Firestore: $e");
-      }
-    } else {
-      debugPrint("Tidak ada data untuk disimpan atau user belum login.");
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_currentUserId)
+          .collection('activities')
+          .add(activity.toMap());
+      debugPrint("Aktivitas berhasil disimpan.");
+    } catch (e) {
+      debugPrint("Gagal simpan: $e");
+    } finally {
+      reset();
     }
-  }
-
-  void startNewTracking() {
-    reset();
-    startTracking();
   }
 
   void reset() {
-    stopTracking();
     _isTracking = false;
+    _stopAllStreams();
     _steps = 0;
     _distance = 0.0;
     _timerSeconds = 0;
-    _lastKnownPosition = null;
-    _currentPosition = null;
+    _lastStepCountForDistance = 0;
     _recordedPositions = [];
-    _sliderDragOffset = 0.0;
+    _lastPosition = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _trackingTimer?.cancel();
-    _locationUpdateTimer?.cancel();
+    _stopAllStreams();
     super.dispose();
   }
 }
