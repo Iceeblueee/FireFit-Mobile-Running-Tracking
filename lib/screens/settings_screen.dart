@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
-import 'export_data_screen.dart'; // Import Baru
+import 'verify_email_screen.dart'; // Tetap fungsional
+import 'export_data_screen.dart'; // Tetap fungsional untuk PDF Export
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -33,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 30),
+
             // === Account ===
             _buildListTile(
               context,
@@ -40,19 +42,30 @@ class SettingsScreen extends StatelessWidget {
               color: Colors.blue,
               title: 'Account',
               subtitle: 'Manage your profile',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                );
+              },
             ),
             const Divider(),
-            // === Security ===
+
+            // === Security (Hanya menyisakan Verify Email) ===
             _buildListTile(
               context,
               icon: Icons.security,
               color: Colors.purple,
               title: 'Security',
-              subtitle: 'Change password & verify email',
-              onTap: () => _showSecurityDialog(context),
+              subtitle: 'Verify your email address',
+              onTap: () {
+                _showSecurityDialog(context);
+              },
             ),
             const Divider(),
+
             // === Terms of Service ===
             _buildListTile(
               context,
@@ -63,6 +76,7 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _showTermsDialog(context),
             ),
             const Divider(),
+
             // === Contact Us ===
             _buildListTile(
               context,
@@ -73,21 +87,25 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _showContactDialog(context),
             ),
             const Divider(),
-            // === Export Data === (DIPERBARUI)
+
+            // === Export Data (Menuju Layar PDF Export) ===
             _buildListTile(
               context,
               icon: Icons.download,
               color: Colors.blue,
               title: 'Export Data',
-              subtitle: 'Download your workout history',
+              subtitle: 'Download your workout history (PDF)',
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ExportDataScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ExportDataScreen(),
+                  ),
                 );
               },
             ),
             const Divider(),
+
             // === Logout ===
             _buildListTile(
               context,
@@ -98,7 +116,14 @@ class SettingsScreen extends StatelessWidget {
               subtitle: 'Sign out from your account',
               onTap: () async {
                 await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                }
               },
             ),
           ],
@@ -107,29 +132,149 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Helper Widget untuk merapikan kode
-  Widget _buildListTile(BuildContext context,
-      {required IconData icon,
-      required Color color,
-      required String title,
-      required String subtitle,
-      required VoidCallback onTap,
-      Color? titleColor}) {
+  // Helper Widget Utama untuk konsistensi UI
+  Widget _buildListTile(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? titleColor,
+  }) {
     return ListTile(
       leading: Container(
         width: 40,
         height: 40,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[200]),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey[200],
+        ),
         child: Icon(icon, color: color),
       ),
-      title: Text(title, style: TextStyle(color: titleColor)),
-      subtitle: Text(subtitle),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          color: titleColor ?? Colors.black,
+        ),
+      ),
+      subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 14,
+        color: Colors.grey,
+      ),
       onTap: onTap,
     );
   }
 
-  // Dialog-dialog pendukung (tetap sama seperti sebelumnya)
-  void _showSecurityDialog(BuildContext context) { /* ... isi sama ... */ }
-  void _showTermsDialog(BuildContext context) { /* ... isi sama ... */ }
-  void _showContactDialog(BuildContext context) { /* ... isi sama ... */ }
+  // Dialog Security yang kini hanya berisi Verify Email
+  void _showSecurityDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Security Options'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSecurityOption(
+                context,
+                title: 'Verify Email',
+                icon: Icons.email,
+                color: Colors.green,
+                screen: const VerifyEmailScreen(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper navigasi dialog
+  Widget _buildSecurityOption(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Widget screen,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context); // Tutup dialog
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => screen),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTermsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Terms of Service'),
+        content: const Text(
+          'By using FireFit, you agree to our terms & conditions. We collect your fitness data to improve your experience.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showContactDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contact Us'),
+        content: const Text(
+          'Email: support@firefit.com\nWebsite: www.firefit.com',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
