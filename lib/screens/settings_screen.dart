@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
-import 'verify_email_screen.dart'; // Tetap fungsional
-import 'export_data_screen.dart'; // Tetap fungsional untuk PDF Export
+import 'verify_email_screen.dart';    // Fungsional
+import 'two_factor_auth_screen.dart'; // Ditambahkan kembali
+import 'export_data_screen.dart';     // Fungsional untuk PDF Export
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -45,21 +46,19 @@ class SettingsScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
                 );
               },
             ),
             const Divider(),
 
-            // === Security (Hanya menyisakan Verify Email) ===
+            // === Security (Verify Email & Two-Factor Auth) ===
             _buildListTile(
               context,
               icon: Icons.security,
               color: Colors.purple,
               title: 'Security',
-              subtitle: 'Verify your email address',
+              subtitle: 'Email verification & 2FA status', // Subtitle diperbarui
               onTap: () {
                 _showSecurityDialog(context);
               },
@@ -88,7 +87,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(),
 
-            // === Export Data (Menuju Layar PDF Export) ===
+            // === Export Data ===
             _buildListTile(
               context,
               icon: Icons.download,
@@ -98,9 +97,7 @@ class SettingsScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ExportDataScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const ExportDataScreen()),
                 );
               },
             ),
@@ -119,9 +116,7 @@ class SettingsScreen extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
                   );
                 }
               },
@@ -132,7 +127,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Helper Widget Utama untuk konsistensi UI
+  // Helper Widget Utama
   Widget _buildListTile(
     BuildContext context, {
     required IconData icon,
@@ -160,34 +155,38 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
       subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 14,
-        color: Colors.grey,
-      ),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
       onTap: onTap,
     );
   }
 
-  // Dialog Security yang kini hanya berisi Verify Email
+  // DIALOG SECURITY (Verify Email & 2FA)
   void _showSecurityDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Security Options'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Opsi 1: Verify Email
               _buildSecurityOption(
                 context,
                 title: 'Verify Email',
                 icon: Icons.email,
                 color: Colors.green,
                 screen: const VerifyEmailScreen(),
+              ),
+              const SizedBox(height: 10),
+              // Opsi 2: Two-Factor Auth (Ditambahkan kembali)
+              _buildSecurityOption(
+                context,
+                title: 'Two-Factor Auth',
+                icon: Icons.shield,
+                color: Colors.orange,
+                screen: const TwoFactorAuthScreen(),
               ),
             ],
           ),
@@ -202,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Helper navigasi dialog
+  // Helper Item Navigasi Dialog
   Widget _buildSecurityOption(
     BuildContext context, {
     required String title,
@@ -251,10 +250,7 @@ class SettingsScreen extends StatelessWidget {
           'By using FireFit, you agree to our terms & conditions. We collect your fitness data to improve your experience.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
         ],
       ),
     );
@@ -265,14 +261,9 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Contact Us'),
-        content: const Text(
-          'Email: support@firefit.com\nWebsite: www.firefit.com',
-        ),
+        content: const Text('Email: support@firefit.com\nWebsite: www.firefit.com'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
         ],
       ),
     );
