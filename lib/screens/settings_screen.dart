@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
-import 'verify_email_screen.dart';    // Fungsional
-import 'two_factor_auth_screen.dart'; // Ditambahkan kembali
-import 'export_data_screen.dart';     // Fungsional untuk PDF Export
+import 'change_password_screen.dart';
+import 'verify_email_screen.dart';
+import 'two_factor_auth_screen.dart';
+import 'export_data_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -20,6 +21,7 @@ class SettingsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
+            // Header Settings
             Container(
               width: 100,
               height: 100,
@@ -36,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // === Account ===
+            // === 1. Account ===
             _buildListTile(
               context,
               icon: Icons.person,
@@ -46,26 +48,28 @@ class SettingsScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
                 );
               },
             ),
             const Divider(),
 
-            // === Security (Verify Email & Two-Factor Auth) ===
+            // === 2. Security (Full 3 Menu) ===
             _buildListTile(
               context,
               icon: Icons.security,
               color: Colors.purple,
               title: 'Security',
-              subtitle: 'Email verification & 2FA status', // Subtitle diperbarui
+              subtitle: 'Password, Email verification & 2FA',
               onTap: () {
                 _showSecurityDialog(context);
               },
             ),
             const Divider(),
 
-            // === Terms of Service ===
+            // === 3. Terms of Service ===
             _buildListTile(
               context,
               icon: Icons.description,
@@ -76,7 +80,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(),
 
-            // === Contact Us ===
+            // === 4. Contact Us ===
             _buildListTile(
               context,
               icon: Icons.email,
@@ -87,7 +91,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(),
 
-            // === Export Data ===
+            // === 5. Export Data (PDF Export) ===
             _buildListTile(
               context,
               icon: Icons.download,
@@ -97,13 +101,15 @@ class SettingsScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ExportDataScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ExportDataScreen(),
+                  ),
                 );
               },
             ),
             const Divider(),
 
-            // === Logout ===
+            // === 6. Logout ===
             _buildListTile(
               context,
               icon: Icons.exit_to_app,
@@ -116,7 +122,9 @@ class SettingsScreen extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
                   );
                 }
               },
@@ -127,7 +135,9 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Helper Widget Utama
+  // --- UI COMPONENTS ---
+
+  // Widget untuk merapikan item di menu utama
   Widget _buildListTile(
     BuildContext context, {
     required IconData icon,
@@ -155,23 +165,36 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
       subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        size: 14,
+        color: Colors.grey,
+      ),
       onTap: onTap,
     );
   }
 
-  // DIALOG SECURITY (Verify Email & 2FA)
+  // Dialog Opsi Keamanan
   void _showSecurityDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Security Options'),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Opsi 1: Verify Email
+              _buildSecurityOption(
+                context,
+                title: 'Change Password',
+                icon: Icons.lock,
+                color: Colors.blue,
+                screen: const ChangePasswordScreen(),
+              ),
+              const SizedBox(height: 10),
               _buildSecurityOption(
                 context,
                 title: 'Verify Email',
@@ -180,7 +203,6 @@ class SettingsScreen extends StatelessWidget {
                 screen: const VerifyEmailScreen(),
               ),
               const SizedBox(height: 10),
-              // Opsi 2: Two-Factor Auth (Ditambahkan kembali)
               _buildSecurityOption(
                 context,
                 title: 'Two-Factor Auth',
@@ -201,7 +223,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // Helper Item Navigasi Dialog
+  // Widget bantuan untuk item navigasi di dalam dialog
   Widget _buildSecurityOption(
     BuildContext context, {
     required String title,
@@ -250,7 +272,10 @@ class SettingsScreen extends StatelessWidget {
           'By using FireFit, you agree to our terms & conditions. We collect your fitness data to improve your experience.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -261,9 +286,14 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Contact Us'),
-        content: const Text('Email: support@firefit.com\nWebsite: www.firefit.com'),
+        content: const Text(
+          'Email: support@firefit.com\nWebsite: www.firefit.com',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
