@@ -6,34 +6,39 @@ plugins {
 }
 
 android {
+    // Gunakan '=' untuk penugasan di Kotlin DSL
     namespace = "com.example.firefit"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Gunakan 'is' dan '=' untuk properti boolean
+        isCoreLibraryDesugaringEnabled = true
+        
+        // Gunakan '=' untuk compatibility
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        // Pastikan nilai String menggunakan tanda petik
+        jvmTarget = "11"
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.firefit"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.  
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Gunakan '=' untuk multiDex
+        multiDexEnabled = true
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // Gunakan getByName untuk mengakses build type di KTS
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -44,6 +49,9 @@ flutter {
 }
 
 dependencies {
+    // Sintaksis fungsi untuk dependencies di KTS
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
     implementation("com.google.firebase:firebase-analytics")
 }

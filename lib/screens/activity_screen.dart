@@ -255,7 +255,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.symmetric(vertical: 150),
         child: Column(
           children: [
             Icon(icon, size: 80, color: Colors.grey[400]),
