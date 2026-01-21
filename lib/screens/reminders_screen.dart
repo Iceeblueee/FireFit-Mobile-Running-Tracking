@@ -1,12 +1,12 @@
-// screens/reminders_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-// ✅ Fungsi helper untuk parsing string ke TimeOfDay
-TimeOfDay _timeOfDayFromString(String timeString) {
-  final parts = timeString.split(':');
-  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-}
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -16,318 +16,526 @@ class RemindersScreen extends StatefulWidget {
 }
 
 class _RemindersScreenState extends State<RemindersScreen> {
-  List<Map<String, dynamic>> _reminders = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
-    _loadReminders();
+    _initSystem();
   }
 
-  Future<void> _loadReminders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final reminderList = prefs.getStringList('reminders') ?? [];
-    setState(() {
-      _reminders = reminderList.map((json) => _parseJson(json)).toList();
-    });
+  // --- 1. INISIALISASI SISTEM NOTIFIKASI ---
+  Future<void> _initSystem() async {
+    tz.initializeTimeZones();
+
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    await _notificationsPlugin.initialize(
+      const InitializationSettings(android: androidSettings),
+    );
+
+    // Minta izin Android 13+ & Alarm Presisi
+    await [
+      Permission.notification,
+      Permission.audio,
+      Permission.scheduleExactAlarm,
+    ].request();
   }
 
-  Future<void> _saveReminders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final reminderList = _reminders.map((map) => _toJson(map)).toList();
-    await prefs.setStringList('reminders', reminderList);
-  }
+  // --- 2. LOGIKA JADWAL NOTIFIKASI (FIXED) ---
+  Future<void> _scheduleNotification(
+    String id,
+    String desc,
+    String timeStr,
+    bool enabled,
+  ) async {
+    if (!enabled) {
+      await _notificationsPlugin.cancel(id.hashCode);
+      return;
+    }
 
-  String _toJson(Map<String, dynamic> map) {
-    return "${map['description']},${map['day']},${map['time']},${map['enabled']}";
-  }
+    try {
+      final timeParts = timeStr.split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
 
-  Map<String, dynamic> _parseJson(String json) {
-    final parts = json.split(',');
-    return {
-      'description': parts[0],
-      'day': parts[1],
-      'time': parts[2],
-      'enabled': parts[3] == 'true',
-    };
-  }
+      DateTime now = DateTime.now();
+      DateTime scheduledDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      ).subtract(const Duration(minutes: 5));
 
-  Future<void> _toggleReminder(int index) async {
-    setState(() {
-      _reminders[index]['enabled'] = !_reminders[index]['enabled'];
-    });
-    await _saveReminders();
-  }
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
 
-  Future<void> _deleteReminder(int index) async {
-    setState(() {
-      _reminders.removeAt(index);
-    });
-    await _saveReminders();
-  }
-
-  void _addReminder(String description, String day, String time) {
-    setState(() {
-      _reminders.add({
-        'description': description,
-        'day': day,
-        'time': time,
-        'enabled': true,
-      });
-    });
-    _saveReminders();
+      await _notificationsPlugin.zonedSchedule(
+        id.hashCode,
+        'FireFit: Get Ready!',
+        'Aktivitas "$desc" dimulai dalam 5 menit.',
+        tz.TZDateTime.from(scheduledDate, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'firefit_running_v5', // Channel ID baru untuk reset setting
+            'Running Reminders',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+        ),
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (e) {
+      debugPrint("Gagal menjadwalkan notifikasi: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final String uid = _auth.currentUser?.uid ?? "";
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('users')
+            .doc(uid)
+            .collection('reminders')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.orange),
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const Text(
+                'Your Reminders',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
+                _buildEmptyState()
+              else
+                ...snapshot.data!.docs.map((doc) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  _scheduleNotification(
+                    doc.id,
+                    data['description'],
+                    data['time'],
+                    data['enabled'],
+                  );
+                  return _buildReminderItem(doc.id, data, uid);
+                }),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showFormDialog(context),
+        backgroundColor: Colors.orange,
+        child: const Icon(Icons.notification_add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 150),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Your Reminders',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Icon(
+              Icons.notification_important_outlined,
+              size: 80,
+              color: Colors.grey[300],
             ),
             const SizedBox(height: 20),
-            Expanded(
-              child: _reminders.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.notifications_off,
-                            size: 50,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 10),
-                          const Text('No reminders set'),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              _showAddReminderDialog(context);
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Reminder'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _reminders.length,
-                      itemBuilder: (context, index) {
-                        final reminder = _reminders[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.blue.withOpacity(0.2),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.orange.withOpacity(0.1),
-                                ),
-                                child: const Icon(
-                                  Icons.notifications,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                              const SizedBox(width: 15),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      reminder['description'],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      reminder['day'],
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      reminder['time'],
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: reminder['enabled'],
-                                onChanged: (value) {
-                                  _toggleReminder(index);
-                                },
-                                activeThumbColor: Colors.orange,
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () {
-                                  _deleteReminder(index);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+            const Text(
+              "No Reminders Yet",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Set your new running schedule.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddReminderDialog(context);
-        },
-        backgroundColor: Colors.red,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
-  void _showAddReminderDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AddReminderDialog(
-        onAdd: (description, day, time) {
-          _addReminder(description, day, time);
-          Navigator.pop(context); // Tutup dialog setelah save
-        },
+  Widget _buildReminderItem(String id, Map<String, dynamic> data, String uid) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
       ),
-    );
-  }
-}
-
-// ✅ Buat dialog sebagai StatefulWidget agar bisa update UI
-class AddReminderDialog extends StatefulWidget {
-  final Function(String, String, String) onAdd;
-
-  const AddReminderDialog({super.key, required this.onAdd});
-
-  @override
-  State<AddReminderDialog> createState() => _AddReminderDialogState();
-}
-
-class _AddReminderDialogState extends State<AddReminderDialog> {
-  String description = '';
-  String day = 'Monday';
-  String time = '07:00'; // Default
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add New Reminder'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          TextField(
-            decoration: const InputDecoration(labelText: 'Description'),
-            onChanged: (value) => setState(() {
-              description = value;
-            }),
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: day,
-            decoration: const InputDecoration(labelText: 'Day'),
-            items:
-                [
-                  'Monday',
-                  'Tuesday',
-                  'Wednesday',
-                  'Thursday',
-                  'Friday',
-                  'Saturday',
-                  'Sunday',
-                ].map((day) {
-                  return DropdownMenuItem(value: day, child: Text(day));
-                }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  day = value;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 10),
-          // ✅ Ganti TextFormField dengan controller agar bisa update dinamis
-          TextField(
-            decoration: InputDecoration(
-              labelText: 'Time',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.access_time),
-                onPressed: () async {
-                  final timeOfDay = await showTimePicker(
-                    context: context,
-                    initialTime: _timeOfDayFromString(time),
-                  );
-                  if (timeOfDay != null) {
-                    setState(() {
-                      time = timeOfDay.format(context);
-                    });
-                  }
-                },
-              ),
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.orange.withOpacity(0.1),
             ),
-            controller: TextEditingController(
-              text: time,
-            ), // ✅ Gunakan controller
-            readOnly: true,
-            onTap: () async {
-              final timeOfDay = await showTimePicker(
-                context: context,
-                initialTime: _timeOfDayFromString(time),
-              );
-              if (timeOfDay != null) {
-                setState(() {
-                  time = timeOfDay.format(context);
-                });
-              }
-            },
+            child: const Icon(Icons.alarm, color: Colors.orange),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  data['description'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "${data['day']} • ${data['time']}",
+                  style: const TextStyle(color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: data['enabled'],
+            onChanged: (val) => _firestore
+                .collection('users')
+                .doc(uid)
+                .collection('reminders')
+                .doc(id)
+                .update({'enabled': val}),
+            activeColor: Colors.orange,
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_note, color: Colors.blue),
+            onPressed: () =>
+                _showFormDialog(context, docId: id, existingData: data),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: () => _firestore
+                .collection('users')
+                .doc(uid)
+                .collection('reminders')
+                .doc(id)
+                .delete(),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () {
-            if (description.isNotEmpty) {
-              widget.onAdd(description, day, time);
-            }
-          },
-          child: const Text('Save'),
+    );
+  }
+
+  void _showFormDialog(
+    BuildContext context, {
+    String? docId,
+    Map<String, dynamic>? existingData,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => _ReminderFormSheet(
+        uid: _auth.currentUser?.uid ?? "",
+        docId: docId,
+        existingData: existingData,
+      ),
+    );
+  }
+}
+
+// --- FORM MODAL (FIXED ALIGNMENT) ---
+class _ReminderFormSheet extends StatefulWidget {
+  final String uid;
+  final String? docId;
+  final Map<String, dynamic>? existingData;
+
+  const _ReminderFormSheet({required this.uid, this.docId, this.existingData});
+
+  @override
+  State<_ReminderFormSheet> createState() => _ReminderFormSheetState();
+}
+
+class _ReminderFormSheetState extends State<_ReminderFormSheet> {
+  final _controller = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String selectedDay = 'Monday';
+  TimeOfDay selectedTime = const TimeOfDay(hour: 07, minute: 00);
+  String? selectedSoundName;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingData != null) {
+      _controller.text = widget.existingData!['description'] ?? "";
+      selectedDay = widget.existingData!['day'] ?? "Monday";
+      final timeParts = (widget.existingData!['time'] as String).split(':');
+      selectedTime = TimeOfDay(
+        hour: int.parse(timeParts[0]),
+        minute: int.parse(timeParts[1]),
+      );
+    }
+  }
+
+  Future<void> _pickSound() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+      if (result != null)
+        setState(() => selectedSoundName = result.files.single.name);
+    } catch (e) {
+      debugPrint("File Picker Error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isEdit = widget.docId != null;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 25,
+        right: 25,
+        top: 25,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isEdit ? "Edit Reminder" : "Add Reminder",
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              hintText: "e.g. Morning Cardio",
+              filled: true,
+              fillColor: Colors.grey[50],
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.orange, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+
+          // TATA LETAK DAY & SOUND (SEJAJAR & RAPI)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildInputWrapper(
+                  label: "Day",
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedDay,
+                      isExpanded: true,
+                      items:
+                          [
+                                'Monday',
+                                'Tuesday',
+                                'Wednesday',
+                                'Thursday',
+                                'Friday',
+                                'Saturday',
+                                'Sunday',
+                              ]
+                              .map(
+                                (e) => DropdownMenuItem(
+                                  value: e,
+                                  child: Text(
+                                    e,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) => setState(() => selectedDay = v!),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: InkWell(
+                  onTap: _pickSound,
+                  child: _buildInputWrapper(
+                    label: "Sound",
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.music_note,
+                          size: 18,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            selectedSoundName ?? "Select Tone",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+
+          InkWell(
+            onTap: () async {
+              final p = await showTimePicker(
+                context: context,
+                initialTime: selectedTime,
+              );
+              if (p != null) setState(() => selectedTime = p);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, color: Colors.orange),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Start Time",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    selectedTime.format(context),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 25),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_controller.text.isNotEmpty) {
+                  final data = {
+                    'description': _controller.text,
+                    'day': selectedDay,
+                    'time':
+                        "${selectedTime.hour}:${selectedTime.minute.toString().padLeft(2, '0')}",
+                    'enabled': isEdit ? widget.existingData!['enabled'] : true,
+                    'createdAt': isEdit
+                        ? widget.existingData!['createdAt']
+                        : FieldValue.serverTimestamp(),
+                  };
+                  if (isEdit) {
+                    _firestore
+                        .collection('users')
+                        .doc(widget.uid)
+                        .collection('reminders')
+                        .doc(widget.docId)
+                        .update(data);
+                  } else {
+                    _firestore
+                        .collection('users')
+                        .doc(widget.uid)
+                        .collection('reminders')
+                        .add(data);
+                  }
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isEdit ? Colors.blue : Colors.orange,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                isEdit ? "Update Schedule" : "Save Schedule",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  // HELPER UNTUK WRAPPING INPUT AGAR SEJAJAR
+  Widget _buildInputWrapper({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        const SizedBox(height: 5),
+        Container(
+          height: 55, // Tinggi statis agar sejajar
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          alignment: Alignment.centerLeft,
+          child: child,
         ),
       ],
     );
